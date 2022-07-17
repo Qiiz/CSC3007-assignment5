@@ -1,0 +1,117 @@
+<html>
+  <head>
+    <title>OneMap2 XYZ (Default)</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css"
+      integrity="sha512-hoalWLoI8r4UszCkZ5kL8vayOGVae1oxXe/2A4AO6J9+580uKHDO3JdHb7NzwwzK5xr/Fs0W40kiNHxM9vyTtQ=="
+      crossorigin=""
+    />
+    <script src="https://cdn.onemap.sg/leaflet/onemap-leaflet.js"></script>
+    <script
+      src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"
+      integrity="sha512-BB3hKbKWOc9Ez/TAwyWxNXeoV9c1v6FIeYiBieIWkpLjauysF18NzgR1MBNBXf8/KABdlkX68nAhlwcDFLGPCQ=="
+      crossorigin=""
+    ></script>
+  </head>
+  <body>
+    <center>
+      <h1>Singapore Map</h1>
+
+      <div id="mapdiv" style="height: 800px"></div>
+    </center>
+  </body>
+  <style>
+    #mapdiv {
+      height: 300px;
+      width: 1500px;
+    }
+  </style>
+
+  <script>
+    var center = L.bounds([1.56073, 104.11475], [1.16, 103.502]).getCenter()
+    var map = L.map('mapdiv').setView([center.x, center.y], 12)
+
+    map.setMaxBounds([
+      [1.56073, 104.1147],
+      [1.16, 103.502],
+    ])
+    var basemap = L.tileLayer(
+      'https://maps-{s}.onemap.sg/v3/Default/{z}/{x}/{y}.png',
+      {
+        detectRetina: true,
+        maxZoom: 18,
+        minZoom: 11,
+        //Do not remove this attribution
+        attribution:
+          '<img src="https://www.onemap.gov.sg/docs/maps/images/oneMap64-01.png" style="height:20px;width:20px;"/> OneMap | Map data &copy; contributors, <a href="http://SLA.gov.sg">Singapore Land Authority</a>',
+      }
+    )
+
+    basemap.addTo(map)
+    render(map)
+
+    // GET FROM ASSIGNMENT ONE
+    // This function will handle the retrieving of data from API
+    async function fetchAPI() {
+      let response = await fetch('https://api.data.gov.sg/v1/environment/psi')
+
+      // Check if able to retrieve data
+      if (response.status === 200) {
+        let data = await response.text() // Wait for data to be retrieve and store in date
+        return data
+      } else console.log(response.statusText) // Failure in retrieving data due to response error
+    }
+
+    // This function will handle data and render to the screen
+    // Using async method because we will retrieve from fetchText method
+    async function render(map) {
+      let items = await fetchAPI()
+      // set the json as an object
+      const obj = JSON.parse(items)
+      // fetch the metric object
+      keys = Object.keys(obj.items[0].readings)
+      // fetch the keys value
+      values = obj.items[0].readings
+      const location = values.psi_twenty_four_hourly
+      const coordinates = obj.region_metadata
+      // get the sum of all PSI value so can scale
+      const sumValues = Object.values(location).reduce((a, b) => a + b)
+
+      for (const [k, v] of Object.entries(coordinates)) {
+        for (const [k1, v1] of Object.entries(location)) {
+          if (v.name == k1) {
+            // same location
+            marker(
+              map,
+              v.label_location.latitude,
+              v.label_location.longitude,
+              v1,
+              sumValues
+            )
+          }
+        }
+      }
+    }
+
+    // This function will handle the rendering of marker to the locations
+    // pass in lat and long for the location
+    function marker(map, lat, long, PSI, sumValues) {
+      var circle = L.circle([lat, long], {
+        color: '#cc561e',
+        fillColor: '#cc561e',
+        fillOpacity: 0.5,
+        radius: (PSI / sumValues) * 21000,
+      }).addTo(map)
+
+      var marker = L.marker([lat, long]).addTo(map)
+      marker.bindTooltip(PSI.toString(), {
+        permanent: true,
+      })
+    }
+  </script>
+</html>
